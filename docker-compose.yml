@@ -1,0 +1,91 @@
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    working_dir: /app
+    command: >
+      sh -c "until pg_isready -h db -p 5432 -U dramasub -d dramasub; do
+        echo 'Waiting for database...';
+        sleep 1;
+      done;
+      alembic upgrade head"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      # Serve /docs, /redoc and /openapi.json locally; production leaves this off.
+      ENABLE_API_DOCS: "true"
+    working_dir: /app
+    command: >
+      python -m uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    working_dir: /app
+    command: >
+      celery -A app.core.celery_app worker
+      --loglevel=info
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: dramasub
+      POSTGRES_PASSWORD: dramasub
+      POSTGRES_DB: dramasub
+    # Host port 5433 (not 5432) so this doesn't clash with other local
+    # Postgres instances. Containers still reach it internally at db:5432.
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dramasub -d dramasub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  postgres_data:

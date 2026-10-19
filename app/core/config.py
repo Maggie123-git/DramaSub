@@ -1,0 +1,83 @@
+from pathlib import Path
+from typing import Literal
+
+from pydantic_settings import BaseSettings
+
+WEAK_JWT_SECRETS: frozenset[str] = frozenset(
+    {
+        "change-me-in-production",
+        "",
+        "secret",
+        "secret-key",
+        "secret_key",
+        "your-secret-key",
+        "your_secret_key",
+        "jwt-secret",
+        "jwt_secret",
+        "supersecret",
+        "super-secret",
+        "test",
+        "test-secret",
+        "test_secret",
+        "password",
+        "123456",
+        "admin",
+    }
+)
+
+
+class Settings(BaseSettings):
+    PROJECT_NAME: str = "DramaSub"
+    VERSION: str = "1.0.0"
+    DATABASE_URL: str = "postgresql://dramasub:dramasub@db:5432/dramasub"
+    REDIS_URL: str = "redis://redis:6379/0"
+    UPLOAD_DIR: Path = Path("uploads")
+    EXPORT_DIR: Path = Path("exports")
+    OPENAI_API_KEY: str | None = None
+
+    # Analysis + translation ("the brain"). Transcription always uses OpenAI
+    # Whisper. BYOK requests always stay on OpenAI. See app/core/llm.py.
+    LLM_PROVIDER: Literal["gemini", "openai"] = "gemini"
+    GEMINI_API_KEY: str | None = None
+    GEMINI_MODEL: str = "gemini-3.8-flash"
+    GEMINI_REASONING_EFFORT: Literal["minimal", "low", "medium", "high"] = "low"
+    JWT_SECRET_KEY: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_DAYS: int = 7
+    ADMIN_API_KEY: str = ""
+    # Interactive API docs (/docs, /redoc) and the /openapi.json schema.
+    # Off by default so production doesn't publish a map of every endpoint;
+    # docker-compose turns it on for local development.
+    ENABLE_API_DOCS: bool = False
+
+    # Email (Resend)
+    RESEND_API_KEY: str | None = None
+    RESEND_FROM_EMAIL: str = "DramaSub <noreply@dramasub.app>"
+    RESEND_VERIFY_TEMPLATE_ALIAS: str = "verification"
+    RESEND_WELCOME_TEMPLATE_ALIAS: str = "welcome"
+    FRONTEND_BASE_URL: str = "http://localhost:8000"
+
+    class Config:
+        env_file = ".env"
+        extra = "ignore"
+
+
+def _validate_jwt_secret() -> None:
+    """Refuse to start with an empty or weak JWT signing secret."""
+    secret = settings.JWT_SECRET_KEY
+    if secret is None or str(secret).strip() == "":
+        raise RuntimeError(
+            "JWT_SECRET_KEY is not set. "
+            "Set a strong JWT_SECRET_KEY in your .env file "
+            "before starting the application."
+        )
+    if str(secret).strip().lower() in WEAK_JWT_SECRETS:
+        raise RuntimeError(
+            "JWT_SECRET_KEY is set to a weak/default value. "
+            "Set a strong, randomly generated JWT_SECRET_KEY in your .env file "
+            "before starting the application."
+        )
+
+
+settings = Settings()
+_validate_jwt_secret()

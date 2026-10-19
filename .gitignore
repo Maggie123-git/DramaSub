@@ -1,0 +1,58 @@
+# macOS
+.DS_Store
+._*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Database & runtime files
+*.db
+*.sqlite3
+*.sqlite3-journal
+
+# User content directories
+uploads/
+exports/
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Cache directories
+.ruff_cache/
+.mypy_cache/
+
+# Git worktrees
+.git-worktrees/
+.env.local
+
+# Local audit/review documents
+docs/
+# Screenshots
+.screenshots/
+.playwright-mcp/
+# Claude Code local settings and skills
+.claude/
